@@ -1,4 +1,4 @@
-import SpendForm from "../components/SpendForm";
+import SpendForm from "@/components/SpendForm";
 import DarkModeToggle from "../components/DarkModeToggle";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
