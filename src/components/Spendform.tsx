@@ -5,6 +5,13 @@ import { useEffect, useState } from "react";
 import LeadCapture from "./LeadCapture";
 import SavingsChart from "./SavingsChart";
 import { exportAuditReport } from "../lib/export-report";
+import toast from "react-hot-toast";
+import TimeMachinePanel from "./TimeMachinePanel";
+import ToolDNAPanel from "./ToolDNAPanel";
+import RiskHeatmapPanel from "./RiskHeatmapPanel";
+import CollapseSimulationPanel from "./CollapseSimulationPanel";
+import AICFOPanel from "./AICFOPanel";
+import AIPersonalityPanel from "./AIPersonalityPanel";
 import {
   runAudit,
   type AuditResult,
@@ -16,7 +23,7 @@ const STORAGE_KEY = "credex-audit-form";
 
 export default function SpendForm() {
   const [tools, setTools] = useState<ToolItem[]>([
-    { tool: "ChatGPT", plan: "Plus", monthlySpend: 100, seats: 3 },
+    { tool: "ChatGPT", plan: "Plus", monthlySpend: 100, seats: 0 },
   ]);
 
   const [teamSize, setTeamSize] = useState(3);
@@ -25,6 +32,7 @@ export default function SpendForm() {
   const [aiSummary, setAiSummary] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [auditId, setAuditId] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -68,72 +76,90 @@ export default function SpendForm() {
   function removeTool(index: number) {
     setTools(tools.filter((_, i) => i !== index));
   }
+
   function resetAudit() {
-  const defaultTools = [
-    {
-      tool: "ChatGPT",
-      plan: "Plus",
-      monthlySpend: 100,
-      seats: 3,
-    },
-  ];
+    const defaultTools = [
+      { tool: "ChatGPT", plan: "Plus", monthlySpend: 100, seats: 3 },
+    ];
 
-  setTools(defaultTools);
+    setTools(defaultTools);
+    setTeamSize(3);
+    setUseCase("coding");
+    setResult(null);
+    setAiSummary("");
+    setError("");
 
-  setTeamSize(3);
-
-  setUseCase("coding");
-
-  setResult(null);
-
-  setAiSummary("");
-
-  setError("");
-
-  localStorage.removeItem(STORAGE_KEY);
-
-  localStorage.removeItem(
-    "credex-latest-audit-result"
-  );
-}
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem("credex-latest-audit-result");
+  }
 
   async function handleRunAudit() {
     setError("");
 
-  const hasInvalidTool = tools.some(
-    (item) => item.monthlySpend < 0 || item.seats < 1
-  );
+    const hasInvalidTool = tools.some(
+      (item) => item.monthlySpend < 0 || item.seats < 1
+    );
 
-  if (teamSize < 1) {
-    setError("Team size must be at least 1.");
-    return;
-  }
+    if (teamSize < 1) {
+      setError("Team size must be at least 1.");
+      return;
+    }
 
-  if (hasInvalidTool) {
-    setError("Monthly spend must be 0 or more, and seats must be at least 1.");
-    return;
-  }
+    if (hasInvalidTool) {
+      setError("Monthly spend must be 0 or more, and seats must be at least 1.");
+      return;
+    }
 
     setLoading(true);
 
     const audit = runAudit(tools, teamSize, useCase);
 
-    setResult(audit);
-    localStorage.setItem("credex-latest-audit-result", JSON.stringify(audit));
-    setAiSummary("Generating summary...");
+   setResult(audit);
+localStorage.setItem("credex-latest-audit-result", JSON.stringify(audit));
+setAiSummary("Generating summary...");
 
+try {
+  const saveResponse = await fetch("/api/audits", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      teamSize,
+      useCase,
+      tools,
+      result: audit,
+    }),
+  });
+
+  const saveData = await saveResponse.json();
+
+  if (saveData.success && saveData.audit?.id) {
+    setAuditId(saveData.audit.id);
+  }
+} catch {
+  console.log("Audit save failed, but audit still works locally.");
+}
     try {
-      const response = await fetch("/api/summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({
-          teamSize: Number(teamSize),
-          useCase,
-          totalMonthlySavings: audit.totalMonthlySavings,
-          recommendations: audit.recommendations,
-        }),
-      });
+     const response = await fetch("/api/summary", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  cache: "no-store",
+  body: JSON.stringify({
+    teamSize: Number(teamSize),
+    useCase,
+    totalMonthlySavings: audit.totalMonthlySavings,
+    recommendations: audit.recommendations,
+
+    futureGrowthPercentage:
+      audit.futureGrowthPercentage,
+
+    futureRiskLevel:
+      audit.futureRiskLevel,
+  }),
+});
 
       const data = await response.json();
       setAiSummary(data.summary);
@@ -147,24 +173,30 @@ export default function SpendForm() {
   }
 
   return (
-    <div className="space-y-6 rounded-2xl border bg-white p-6 text-black shadow-sm">
+    <div className="space-y-5 rounded-3xl border bg-white p-4 text-black shadow-sm sm:p-6">
       <div>
-        <label className="block text-sm font-medium">Team Size</label>
+        <label className="block text-sm font-semibold tracking-wide text-gray-700">
+          Team Size
+          </label>
+        
         <input
           type="number"
           value={teamSize}
           min={1}
           onChange={(e) => setTeamSize(Number(e.target.value))}
-          className="mt-2 w-full rounded-lg border p-3"
+          className="mt-2 w-full rounded-xl border border-gray-200 bg-white p-3 outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium">Primary Use Case</label>
+        <label className="block text-sm font-semibold tracking-wide text-gray-700">
+          Primary Use Case
+          </label>
+        
         <select
           value={useCase}
           onChange={(e) => setUseCase(e.target.value as UseCase)}
-          className="mt-2 w-full rounded-lg border p-3"
+          className="mt-2 w-full rounded-xl border border-gray-200 bg-white p-3 outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
         >
           <option value="coding">Coding</option>
           <option value="writing">Writing</option>
@@ -177,11 +209,13 @@ export default function SpendForm() {
       {tools.map((item, index) => (
         <div
           key={index}
-          className="space-y-4 rounded-xl bg-gray-50 p-4 text-black"
-        >
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold">Tool {index + 1}</h3>
+          className="card-hover rounded-2xl border border-transparent bg-gray-50 p-4 text-black shadow-sm transition-all sm:p-5">
+          <div className="flex items-center gap-2">
+  <div className="h-3 w-3 rounded-full bg-black" />
 
+  <h3 className="font-bold">
+    Tool {index + 1}
+  </h3>
             {tools.length > 1 && (
               <button
                 type="button"
@@ -191,12 +225,12 @@ export default function SpendForm() {
                 Remove
               </button>
             )}
-          </div>
-
+            </div>
+          
           <select
             value={item.tool}
             onChange={(e) => updateTool(index, "tool", e.target.value)}
-            className="w-full rounded-lg border p-3"
+            className="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
           >
             <option>ChatGPT</option>
             <option>Claude</option>
@@ -209,7 +243,7 @@ export default function SpendForm() {
           <select
             value={item.plan}
             onChange={(e) => updateTool(index, "plan", e.target.value)}
-            className="w-full rounded-lg border p-3"
+            className="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
           >
             <option>Free</option>
             <option>Plus</option>
@@ -228,7 +262,7 @@ export default function SpendForm() {
               updateTool(index, "monthlySpend", Number(e.target.value))
             }
             placeholder="Monthly spend"
-            className="w-full rounded-lg border p-3"
+            className="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
           />
 
           <input
@@ -237,50 +271,78 @@ export default function SpendForm() {
             min={1}
             onChange={(e) => updateTool(index, "seats", Number(e.target.value))}
             placeholder="Seats"
-            className="w-full rounded-lg border p-3"
+            className="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
           />
         </div>
       ))}
 
-  <button
-  type="button"
-  onClick={addTool}
-  className="w-full rounded-xl border px-5 py-3 font-semibold"
->
-  + Add another AI tool
-</button>
-
-<button
-  type="button"
-  onClick={resetAudit}
-  className="w-full rounded-xl border border-red-200 bg-red-50 px-5 py-3 font-semibold text-red-700"
->
-  Reset Audit
-</button>
-
-{error && (
-  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-    {error}
-  </div>
-)}
       <button
         type="button"
+        aria-label="Add another AI tool"
+        onClick={addTool}
+        className="card-hover w-full rounded-xl border bg-white px-5 py-3 font-semibold"
+      >
+        + Add another AI tool
+      </button>
+
+      <button
+        type="button"
+        aria-label="Reset audit form"
+        onClick={resetAudit}
+        className="card-hover w-full rounded-xl border border-red-200 bg-red-50 px-5 py-3 font-semibold text-red-700"
+        >
+          Reset Audit
+      </button>
+
+      {error && (
+        <div className="animate-pulse rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+          {error}
+        </div>
+      )}
+
+      <button
+        type="button"
+        aria-label="Run AI spend audit"
         onClick={handleRunAudit}
         disabled={loading}
-        className="w-full rounded-xl bg-black px-5 py-3 font-semibold text-white disabled:opacity-60"
+        aria-busy={loading}
+        className="glow-button card-hover w-full rounded-xl bg-black px-5 py-3 font-semibold text-white shadow-lg disabled:opacity-60"
       >
         {loading ? "Generating Audit..." : "Run Free Audit"}
       </button>
 
-      {result && (
-        <div className="space-y-6 rounded-2xl border bg-white p-6 text-black shadow-sm">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl bg-black p-5 text-white">
-              <p className="text-sm text-gray-300">AI Stack Health</p>
-              <h2 className="mt-3 text-5xl font-bold">
-                {result.healthScore}
-              </h2>
 
+      {loading && (
+  <div className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
+    <div className="h-6 w-40 animate-pulse rounded bg-gray-200" />
+
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="h-32 animate-pulse rounded-xl bg-gray-200" />
+      <div className="h-32 animate-pulse rounded-xl bg-gray-200" />
+      <div className="h-32 animate-pulse rounded-xl bg-gray-200" />
+    </div>
+
+    <div className="h-64 animate-pulse rounded-xl bg-gray-200" />
+
+    <div className="space-y-3">
+      <div className="h-24 animate-pulse rounded-xl bg-gray-200" />
+      <div className="h-24 animate-pulse rounded-xl bg-gray-200" />
+    </div>
+  </div>
+)}
+
+      {result && (
+      <div  className="fade-up animate-delay-1 space-y-5 rounded-3xl border border-white/10 bg-white/90 p-4 text-black shadow-sm backdrop-blur sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="card-hover rounded-xl bg-black p-5 text-white shadow-lg">
+              <p className="text-sm text-gray-300">
+                
+                AI Stack Health
+
+                </p>
+              <h2 className="bg-linear-to-r from-green-400 to-emerald-300 bg-clip-text text-5xl font-bold text-transparent">
+  {result.healthScore}
+</h2>
               <div className="mt-4 h-3 overflow-hidden rounded-full bg-gray-700">
                 <div
                   className="h-full rounded-full bg-green-400"
@@ -288,155 +350,207 @@ export default function SpendForm() {
                 />
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
-  ...existing 3 cards...
-</div>
 
-<div className="grid gap-4 md:grid-cols-3">
-  <div className="rounded-xl border bg-white p-5 text-black">
-    <p className="text-sm text-gray-500">
-      Total Tools
-    </p>
-
-    <h3 className="mt-2 text-3xl font-bold">
-      {tools.length}
-    </h3>
-
-    <p className="mt-2 text-sm text-gray-500">
-      AI platforms currently in use
-    </p>
-  </div>
-
-  <div className="rounded-xl border bg-white p-5 text-black">
-    <p className="text-sm text-gray-500">
-      Total Seats
-    </p>
-
-    <h3 className="mt-2 text-3xl font-bold">
-      {tools.reduce((sum, item) => sum + item.seats, 0)}
-    </h3>
-
-    <p className="mt-2 text-sm text-gray-500">
-      Combined active AI seats
-    </p>
-  </div>
-
-  <div className="rounded-xl border bg-white p-5 text-black">
-    <p className="text-sm text-gray-500">
-      Overspend Risk
-    </p>
-
-    <h3 className="mt-2 text-3xl font-bold">
-      {result.healthScore < 60
-        ? "High"
-        : result.healthScore < 80
-        ? "Medium"
-        : "Low"}
-    </h3>
-
-    <p className="mt-2 text-sm text-gray-500">
-      Estimated optimization risk level
-    </p>
-  </div>
-</div>
- <div className="rounded-xl border bg-white p-5 text-black">
-    <p className="text-sm text-gray-500">
-      Current Monthly Spend
-    </p>
-
-    <h3 className="mt-2 text-3xl font-bold">
-      ${result.totalCurrentSpend}
-    </h3>
-
-    <p className="mt-2 text-sm text-gray-500">
-      Total AI spend before optimization
-    </p>
-  </div>
-<div className="rounded-xl bg-white p-5 text-black">
-              <p className="text-sm text-gray-500">Monthly Savings</p>
-              <h2 className="mt-3 text-4xl font-bold text-green-600">
-                ${result.totalMonthlySavings}
-              </h2>
-              <p className="mt-2 text-sm text-gray-500">
-                Estimated optimization opportunity
-              </p>
+          <div  className="card-hover dark-card rounded-xl border border-transparent bg-white p-5 text-black shadow-sm">
+              <p className="text-sm text-gray-500">
+                
+                Monthly Savings
+                
+                </p>
+              <h2 className="bg-linear-to-r from-green-500 to-emerald-400 bg-clip-text text-4xl font-bold text-transparent">
+  ${result.totalMonthlySavings}
+</h2>
+              <p className="dark-muted mt-2 text-sm text-gray-500">
+  Estimated optimization opportunity
+</p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 text-black">
-              <p className="text-sm text-gray-500">Annual Savings</p>
-              <h2 className="mt-3 text-4xl font-bold">
-                ${result.totalAnnualSavings}
-              </h2>
-              <p className="mt-2 text-sm text-gray-500">
+            <div className="card-hover dark-card rounded-xl border border-transparent bg-white p-5 text-black shadow-sm">
+              <p className="text-sm text-gray-500">
+                
+                Annual Savings
+                
+                </p>
+              <h2 className="bg-linear-to-r from-blue-500 to-cyan-400 bg-clip-text text-4xl font-bold text-transparent">
+  ${result.totalAnnualSavings}
+</h2>
+              <p className="dark-muted mt-2 text-sm text-gray-500">
                 Potential yearly reduction
               </p>
             </div>
           </div>
 
+          <div className="card-hover dark-card rounded-xl border border-transparent bg-white p-5 text-black shadow-sm">
+            <div className="rounded-xl border bg-white p-5 text-black">
+              <p className="text-sm text-gray-500">
+                
+                Total Tools
+                
+                </p>
+              <h3 className="mt-2 text-3xl font-bold">{tools.length}</h3>
+              <p className="dark-muted mt-2 text-sm text-gray-500">
+                AI platforms currently in use
+              </p>
+            </div>
+
+            <div className="card-hover dark-card rounded-xl border border-transparent bg-white p-5 text-black shadow-sm">
+              <p className="text-sm text-gray-500">
+                
+                Total Seats
+                
+                </p>
+              <h3 className="mt-2 text-3xl font-bold">
+                {tools.reduce((sum, item) => sum + item.seats, 0)}
+              </h3>
+             <p className="dark-muted mt-2 text-sm text-gray-500">
+                Combined active AI seats
+              </p>
+            </div>
+
+            <div className="card-hover dark-card rounded-xl border border-transparent bg-white p-5 text-black shadow-sm">
+              <p className="text-sm text-gray-500">
+                
+                Overspend Risk
+                
+                </p>
+              <h3 className="mt-2 text-3xl font-bold">
+                {result.healthScore < 60
+                  ? "High"
+                  : result.healthScore < 80
+                  ? "Medium"
+                  : "Low"}
+              </h3>
+             <p className="dark-muted mt-2 text-sm text-gray-500">
+                Estimated optimization risk level
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="card-hover dark-card rounded-xl border border-transparent bg-white p-5 text-black shadow-sm">
+              <p className="text-sm text-gray-500">
+                
+                Current Monthly Spend
+                
+                </p>
+              <h3 className="mt-2 text-3xl font-bold">
+                ${result.totalCurrentSpend}
+              </h3>
+             <p className="dark-muted mt-2 text-sm text-gray-500">
+                Total AI spend before optimization
+              </p>
+            </div>
+
+            <div className="card-hover dark-card rounded-xl border border-transparent bg-white p-5 text-black shadow-sm">
+              <p className="text-sm text-gray-500">
+                
+                
+                Savings Rate
+                
+                
+                </p>
+              <h3 className="mt-2 text-3xl font-bold">
+                {result.savingsPercentage}%
+              </h3>
+              <p className="dark-muted mt-2 text-sm text-gray-500">
+                Percentage of spend that may be reduced
+              </p>
+            </div>
+          </div>
+
+
+          <TimeMachinePanel result={result} />
+          <ToolDNAPanel result={result} />
+          <RiskHeatmapPanel result={result} />
+          <CollapseSimulationPanel result={result} />
+          <AICFOPanel result={result} />
+          <AIPersonalityPanel result={result} />
+          
+
           {aiSummary && (
-            <div className="rounded-xl bg-white p-5 text-black">
-              <h3 className="text-lg font-bold">AI Generated Summary</h3>
-              <p className="mt-3 whitespace-pre-line text-gray-700">
+            <div
+            className="card-hover dark-card rounded-xl border bg-white p-5 text-black">
+              <h3 className="text-lg font-bold">
+                
+                
+                AI Generated Summary
+                
+                
+                </h3>
+              <p className="dark-muted mt-3 whitespace-pre-line text-gray-700">
                 {aiSummary}
               </p>
             </div>
           )}
 
-          <SavingsChart
-            data={result.recommendations.map((item) => ({
-              tool: item.tool,
-              savings: item.savings,
-            }))}
-          />
+                <div className="card-hover dark-card rounded-2xl border bg-white p-4 shadow-sm">
+            <SavingsChart
+              data={result.recommendations.map((item) => ({
+                tool: item.tool,
+                savings: item.savings,
+              }))}
+            />
+          </div>
+
           {result.recommendations.map((item, index) => (
-  <div key={index} className="rounded-xl bg-white p-5 text-black shadow-sm">
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h3 className="text-lg font-bold">
-          {item.tool}
-        </h3>
+  <div
+    key={index}
+    style={{
+      animationDelay: `${index * 120}ms`,
+    }}
+              className="card-hover dark-card rounded-xl border bg-white p-5 text-black shadow-sm"
+            >
+              <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-bold">{item.tool}</h3>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Current spend: ${item.currentSpend}/mo
+      <p className="dark-muted mt-1 text-sm text-gray-500">
+        Current spend: ${item.currentSpend}/mo
         </p>
-      </div>
+        </div>
 
-      <p className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
-        Save ${item.savings}/mo
-      </p>
-    </div>
+                <p className="w-fit rounded-full bg-linear-to-r from-green-100 to-emerald-100 px-3 py-1 text-sm font-semibold text-green-700 shadow-sm">
+  Save ${item.savings}/mo
+</p>
+              </div>
 
-    <div className="mt-4 flex flex-wrap gap-2">
-      <span className="rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
-        {item.action}
-      </span>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+  <span className="bg-linear-to-r from-black to-gray-800 rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm">
+  {item.action}
+</span>
 
-      {item.savings > 300 && (
-        <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-          High Savings
-        </span>
-      )}
+  {item.savings >= 500 && (
+    <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+      Critical Overspend
+    </span>
+  )}
 
-      {item.savings > 0 && item.savings <= 300 && (
-        <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
-          Moderate Savings
-        </span>
-      )}
+  {item.savings >= 200 && item.savings < 500 && (
+    <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
+      Moderate Overspend
+    </span>
+  )}
 
-      {item.savings === 0 && (
-        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-          Optimized
-        </span>
-      )}
-    </div>
+  {item.savings > 0 && item.savings < 200 && (
+    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+      Small Optimization
+    </span>
+  )}
 
-    <p className="mt-4 leading-7 text-gray-600">
-      {item.reason}
-    </p>
-  </div>
-))}
+  {item.savings === 0 && (
+    <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+      Efficient Setup
+    </span>
+  )}
+</div>
+                <p className="dark-muted mt-4 leading-7 text-gray-600">
+                {item.reason}
+              </p>
+            </div>
+          ))}
+
           {result.totalMonthlySavings > 500 ? (
-            <div className="rounded-xl border bg-yellow-50 p-5 text-black">
+            <div className="card-hover rounded-xl border border-yellow-200 bg-yellow-50 p-5 text-black">
               <h3 className="text-lg font-bold text-yellow-900">
                 Big savings opportunity found
               </h3>
@@ -453,7 +567,8 @@ export default function SpendForm() {
               </button>
             </div>
           ) : (
-            <div className="rounded-xl border bg-green-50 p-5 text-black">
+            <div 
+            className="dark-card dark-card rounded-xl border border-yellow-200 bg-yellow-50 p-5 text-black">
               <h3 className="text-lg font-bold text-green-900">
                 Your AI spend looks healthy
               </h3>
@@ -466,28 +581,33 @@ export default function SpendForm() {
 
           <button
             type="button"
+            aria-label="Download PDF audit report"
             onClick={() => exportAuditReport(result, aiSummary)}
-            className="w-full rounded-xl border bg-white px-5 py-3 font-semibold text-black"
+            className="card-hover dark-card w-full rounded-xl border bg-white px-5 py-3 font-semibold text-black"
           >
             Download PDF Report
           </button>
 
           <button
             type="button"
+            aria-label="Copy shareable audit link"
             onClick={() => {
-              localStorage.setItem(
-                "credex-latest-audit-result",
-                JSON.stringify(result)
-              );
-              navigator.clipboard.writeText(`${window.location.origin}/share`);
-              alert("Share link copied!");
-            }}
-            className="w-full rounded-xl border bg-white px-5 py-3 font-semibold text-black"
+  const id = auditId || "latest";
+
+  navigator.clipboard.writeText(
+    `${window.location.origin}/share/${id}`
+  );
+
+  toast.success("Share link copied!");
+}}
+          className="card-hover dark-card w-full rounded-xl border bg-white px-5 py-3 font-semibold text-black"
           >
             Copy Share Link
           </button>
 
-          <LeadCapture />
+          <div className="fade-up">
+  <LeadCapture />
+</div>
         </div>
       )}
     </div>

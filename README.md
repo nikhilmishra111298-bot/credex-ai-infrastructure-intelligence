@@ -34,3 +34,49 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Credex AI Spend Audit
+
+Credex AI Spend Audit is a free web app that helps startups find overspending across AI tools like ChatGPT, Claude, Cursor, Copilot, Gemini, and Windsurf. Users enter their AI stack and get instant savings estimates, recommendations, charts, PDF export, and a shareable audit link.
+
+## Tech Stack
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- Recharts
+- jsPDF
+- Vitest
+- GitHub Actions
+
+## Features
+
+- Multi-tool AI spend input form
+- Form persistence with localStorage
+- Audit engine with savings logic
+- AI-generated summary fallback
+- Health score
+- Savings chart
+- PDF report export
+- Shareable audit page
+- Lead capture form
+- Dark mode
+- Tests for audit engine
+
+## Run Locally
+
+```bash
+npm install
+npm run dev
+## Screenshots
+
+### Dashboard
+
+![Dashboard](./screenshots/dashboard.png)
+
+### Dark Mode
+
+![Dark Mode](./screenshots/dark-mode.png)
+
+### Charts
+
+![Charts](./screenshots/charts.png)

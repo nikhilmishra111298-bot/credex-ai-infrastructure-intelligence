@@ -1,34 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function DarkModeToggle() {
-  const [dark, setDark] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
+  const [darkMode, setDarkMode] = useState(false);
 
-    const saved = localStorage.getItem("credex-dark-mode");
+  useEffect(() => {
+    const nextMode =
+      localStorage.getItem("credex-dark-mode") === "true";
 
-    if (saved === "true") {
+    if (nextMode) {
       document.documentElement.classList.add("dark");
-      return true;
+    } else {
+      document.documentElement.classList.remove("dark");
     }
-
-    return false;
-  });
+  }, []);
 
   function toggleDarkMode() {
-    const next = !dark;
+    const nextMode = !darkMode;
 
-    setDark(next);
+    setDarkMode(nextMode);
 
     localStorage.setItem(
       "credex-dark-mode",
-      String(next)
+      String(nextMode)
     );
 
-    if (next) {
+    if (nextMode) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
@@ -39,9 +37,9 @@ export default function DarkModeToggle() {
     <button
       type="button"
       onClick={toggleDarkMode}
-      className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-black"
+      className="card-hover dark-card rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-black shadow-sm"
     >
-      {dark ? "Light Mode" : "Dark Mode"}
+      {darkMode ? "☀ Light Mode" : "🌙 Dark Mode"}
     </button>
   );
 }

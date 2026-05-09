@@ -7,12 +7,13 @@ export async function POST(req: Request) {
     const totalSavings = body.totalMonthlySavings || 0;
     const useCase = body.useCase || "mixed";
     const teamSize = body.teamSize || 1;
+    const futureGrowth = body.futureGrowthPercentage || 0;
+    const futureRisk = body.futureRiskLevel || "Low";
 
     let teamType = "";
     let workflowInsight = "";
     let savingsInsight = "";
 
-    // Team size personalization
     if (teamSize <= 2) {
       teamType =
         "Your team is very lean, so flexibility and avoiding unnecessary enterprise plans is important.";
@@ -27,7 +28,6 @@ export async function POST(req: Request) {
         "Large organizations benefit significantly from centralized AI infrastructure purchasing and spend governance.";
     }
 
-    // Use case personalization
     if (useCase === "coding") {
       workflowInsight =
         "Your workflow appears engineering-heavy, so developer-focused AI tooling efficiency matters most.";
@@ -45,7 +45,6 @@ export async function POST(req: Request) {
         "Mixed workflows usually create the highest chance of duplicated AI tooling and unused subscriptions.";
     }
 
-    // Savings personalization
     if (totalSavings > 1000) {
       savingsInsight =
         "Your audit shows substantial optimization potential. Credex could meaningfully reduce your AI infrastructure costs.";
@@ -60,12 +59,21 @@ export async function POST(req: Request) {
         "Your current AI spending appears relatively efficient with limited unnecessary cost.";
     }
 
+    const futureWarning =
+      futureRisk === "High"
+        ? `Future warning: your AI spend could grow by ${futureGrowth}% if the stack continues scaling without governance.`
+        : futureRisk === "Medium"
+        ? `Future warning: your AI spend may grow by ${futureGrowth}%, so plan control and seat management are recommended.`
+        : "Future outlook: your projected AI spend growth looks manageable right now.";
+
     const summary = `
 ${teamType}
 
 ${workflowInsight}
 
 ${savingsInsight}
+
+${futureWarning}
 `;
 
     return NextResponse.json({

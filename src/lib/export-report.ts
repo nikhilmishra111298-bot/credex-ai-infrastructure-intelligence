@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { AuditResult } from "./audit-engine";
+import { AuditResult } from "../lib/audit-engine";
 
 export function exportAuditReport(
   result: AuditResult,
@@ -16,6 +16,35 @@ export function exportAuditReport(
     20,
     40
   );
+  doc.text(
+  `Future Monthly Spend: $${result.futureMonthlySpend}`,
+  20,
+  70
+);
+
+doc.text(
+  `Future Growth Risk: ${result.futureGrowthPercentage}%`,
+  20,
+  80
+);
+
+doc.text(
+  `Future Risk Level: ${result.futureRiskLevel}`,
+  20,
+  90
+);
+
+doc.text(
+  `AI Collapse Productivity Loss: ${result.collapseRisk.productivityLoss}%`,
+  20,
+  100
+);
+
+doc.text(
+  `Estimated AI Downtime Cost: $${result.collapseRisk.estimatedDowntimeCost}`,
+  20,
+  110
+);
 
   doc.text(
     `Monthly Savings: $${result.totalMonthlySavings}`,
@@ -30,7 +59,7 @@ export function exportAuditReport(
   );
 
   doc.setFontSize(16);
-  doc.text("AI Summary", 20, 80);
+  doc.text("AI Summary", 20, 130);
 
   doc.setFontSize(12);
 
@@ -39,7 +68,7 @@ export function exportAuditReport(
     170
   );
 
-  doc.text(splitSummary, 20, 90);
+  doc.text(splitSummary, 20, 140);
 
   let y = 130;
 
